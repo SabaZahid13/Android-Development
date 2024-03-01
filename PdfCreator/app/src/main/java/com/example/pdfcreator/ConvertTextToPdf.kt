@@ -4,6 +4,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
+import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Environment
@@ -19,6 +20,11 @@ class ConvertTextToPdf : AppCompatActivity() {
     private lateinit var page: PdfDocument.Page
     private lateinit var userText :EditText
     private lateinit var generatePdfButton: Button
+    private val permissions =  if (Build.VERSION.SDK_INT >= 33) {
+        arrayOf("android.permission.READ_MEDIA_AUDIO","android.permission.READ_MEDIA_VIDEO","android.permission.READ_MEDIA_IMAGES","android.permission.READ_MEDIA_VIDEO","android.permission.ACCESS_MEDIA_LOCATION")
+    }else{
+        arrayOf("android.permission.READ_EXTERNAL_STORAGE","android.permission.WRITE_EXTERNAL_STORAGE","android.permission.ACCESS_MEDIA_LOCATION")
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

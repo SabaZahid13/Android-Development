@@ -25,7 +25,6 @@ class ImageAdapter(
         val currentImage = imageList[position]
         holder.imageView.setImageURI(currentImage.uri)
 
-        // Set click listener for each item
         holder.itemView.setOnClickListener {
             onItemClick(currentImage)
         }

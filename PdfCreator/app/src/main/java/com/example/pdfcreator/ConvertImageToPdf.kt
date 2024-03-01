@@ -1,6 +1,8 @@
 package com.example.pdfcreator
 
 import android.app.Activity
+import android.app.ProgressDialog
+import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.graphics.pdf.PdfDocument
@@ -17,6 +19,10 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import java.io.File
 import java.io.FileOutputStream
+import kotlinx.coroutines.*
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 
 class ConvertImageToPdf : AppCompatActivity() {
@@ -50,7 +56,7 @@ class ConvertImageToPdf : AppCompatActivity() {
             openGallery()
         }
         generatePdfButton.setOnClickListener{
-            createPdfFromImages(selectedImagesList)
+            createPdfFromImages(selectedImagesList,this)
         }
     }
 
@@ -94,46 +100,73 @@ class ConvertImageToPdf : AppCompatActivity() {
             showSelectedImages(selectedImages)
         }
     }
-    private fun createPdfFromImages(selectedImages: List<ImageItem>) {
-        if (selectedImages.isNotEmpty()) {
-            val pdfDocument = PdfDocument()
-            for ((index, imageItem) in selectedImages.withIndex()) {
-                val inputStream = contentResolver.openInputStream(imageItem.uri)
-                val bitmap = BitmapFactory.decodeStream(inputStream)
+    private fun createPdfFromImages(selectedImages: List<ImageItem>, context: Context) {
+        val progressDialog = ProgressDialog(context)
+        progressDialog.setMessage("Processing, please wait...")
+        progressDialog.setCancelable(false)
+        progressDialog.show()
 
-                if (bitmap != null) {
-                    val pageInfo = PdfDocument.PageInfo.Builder(bitmap.width, bitmap.height, index + 1).create()
-                    val page = pdfDocument.startPage(pageInfo)
-                    val canvas = page.canvas
-                    canvas.drawBitmap(bitmap, 0f, 0f, null)
-                    pdfDocument.finishPage(page)
-                } else {
-                    // Handle the case where decoding the image stream or bitmap is null
-                    Log.d("message", "Error decoding image stream or bitmap is null for image at index $index")
-                }
-            }
-            val fileName = "multiImagePdf.pdf"
-            val file = File(getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), fileName)
-            Log.d("message", "Inside createPdfFromImages ${file.absolutePath}")
-
+        GlobalScope.launch(Dispatchers.IO) {
             try {
-                FileOutputStream(file).use { outputStream ->
-                    pdfDocument.writeTo(outputStream)
-                    Toast.makeText(
-                        this,
-                        "PDF Generated at ${file.absolutePath}",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                if (selectedImages.isNotEmpty()) {
+                    val pdfDocument = PdfDocument()
+
+                    for ((index, imageItem) in selectedImages.withIndex()) {
+                        val inputStream = context.contentResolver.openInputStream(imageItem.uri)
+                        val bitmap = BitmapFactory.decodeStream(inputStream)
+
+                        if (bitmap != null) {
+                            val pageInfo =
+                                PdfDocument.PageInfo.Builder(bitmap.width, bitmap.height, index + 1)
+                                    .create()
+                            val page = pdfDocument.startPage(pageInfo)
+                            val canvas = page.canvas
+                            canvas.drawBitmap(bitmap, 0f, 0f, null)
+                            pdfDocument.finishPage(page)
+                        } else {
+                            Log.d(
+                                "message",
+                                "Error decoding image stream or bitmap is null for image at index $index"
+                            )
+                        }
+                    }
+
+                    val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(
+                        Date()
+                    )
+                    val fileName = "multiImagePdf_$timestamp.pdf"
+                    val file = File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), fileName)
+                    Log.d("message", "Inside createPdfFromImages ${file.absolutePath}")
+
+                    try {
+                        FileOutputStream(file).use { outputStream ->
+                            pdfDocument.writeTo(outputStream)
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(
+                                    context,
+                                    "PDF Generated at ${file.absolutePath}",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "Error creating PDF!", Toast.LENGTH_SHORT).show()
+                        }
+                    } finally {
+                        pdfDocument.close()
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "No images selected", Toast.LENGTH_SHORT).show()
+                    }
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                Toast.makeText(this, "Error creating PDF!", Toast.LENGTH_SHORT).show()
             } finally {
-                pdfDocument.close()
+                withContext(Dispatchers.Main) {
+                    progressDialog.dismiss()
+                }
             }
-        } else {
-            Toast.makeText(this, "No images selected", Toast.LENGTH_SHORT).show()
         }
     }
-
 }
